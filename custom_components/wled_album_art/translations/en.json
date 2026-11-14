@@ -1,0 +1,385 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Music Artwork Lighting",
+        "description": "Select one WLED matrix light for this music experience, or leave the matrix empty for theme-light-only mode or artwork and colors for dashboards. Each matrix has its own integration entry and independent settings; use another entry for another display. Choose one initial media player here, then set the full ordered player priority under Configure.",
+        "data": {
+          "source_entity": "Initial media player",
+          "wled_pin": "Optional WLED configuration PIN",
+          "target_entity": "Optional WLED matrix light (leave empty for theme-light-only mode)"
+        }
+      }
+    },
+    "error": {
+      "target_not_wled": "Select a light entity created by the Home Assistant WLED integration.",
+      "wled_config_missing": "Could not find the WLED device configuration for that light.",
+      "source_missing": "The selected media player entity does not exist.",
+      "target_already_configured": "This light is already controlled by another Music Artwork Lighting entry. Use a different matrix or configure the existing entry."
+    },
+    "abort": {
+      "already_configured": "This WLED target is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Playback and outputs",
+        "description": "Choose which players and lights this entry should manage. The next screen will show tuning settings for the selected outputs.",
+        "sections": {
+          "playback": {
+            "name": "Playback",
+            "description": "Choose players in priority order and how long their metadata should settle before changing artwork."
+          },
+          "outputs": {
+            "name": "Outputs",
+            "description": "Choose one WLED matrix, optional room lights, and the device warm-up delay."
+          }
+        },
+        "data": {
+          "wled_pin": "WLED configuration PIN for this matrix (if required)",
+          "target_entity": "WLED matrix light (optional; clear for theme-light-only mode)",
+          "theme_light_entities": "Theme lights (use album-cover colors; optional)",
+          "source_entities": "Media players (ordered priority; optional)",
+          "source_stabilization": "Wait for player metadata to settle before switching artwork (seconds)",
+          "device_warmup_delay_seconds": "Wait after a light or matrix powers on or reconnects before sending commands (seconds)"
+        },
+        "data_description": {
+          "device_warmup_delay_seconds": "Wait this many seconds after any light or matrix powers on or reconnects before sending commands. The delay applies separately to each device; other devices continue working independently.",
+          "source_entities": "Order matters: the first eligible playing music source wins. Artwork is resolved for that source, using online search if enabled, before applying the missing-cover behavior. Current source diagnostics explain the selected player.",
+          "source_stabilization": "Wait for player metadata to settle before switching sources or artwork. Increase slightly if your player briefly exposes incomplete metadata.",
+          "target_entity": "Clear this selection to run without a WLED matrix. Leave theme lights empty too to expose only artwork and color entities for dashboards and automations.",
+          "theme_light_entities": "Optional room lights to color from the cover. Select each light in only one entry, and do not include the matrix here."
+        }
+      },
+      "tuning": {
+        "title": "Lighting and session behavior",
+        "description": "Settings are grouped by what they affect. Matrix and room-light settings only appear when that output is selected.",
+        "sections": {
+          "artwork": {
+            "name": "Artwork",
+            "description": "Cover search services, optional API keys, and animation for the matrix and shared Home Assistant artwork."
+          },
+          "matrix": {
+            "name": "Matrix display",
+            "description": "Artwork sizing, transitions, and WLED behavior."
+          },
+          "room_lighting": {
+            "name": "Room lighting",
+            "description": "How the album cover colors are applied to your selected lights."
+          },
+          "session_end": {
+            "name": "When playback ends",
+            "description": "Choose whether a paused session eventually ends, how long to wait, and what happens to the lights."
+          },
+          "power": {
+            "name": "Automatic power",
+            "description": "Choose which selected lights the integration may turn on when music starts."
+          },
+          "no_art": {
+            "name": "When cover art is missing",
+            "description": "Choose what to do when audio starts without cover art and when a session that showed art loses it."
+          },
+          "source_filter": {
+            "name": "Ignored player inputs",
+            "description": "Optionally skip named inputs such as a TV input. Match the player source value, not the media-player entity name."
+          }
+        },
+        "data": {
+          "animated_artwork": "Animated artwork",
+          "end_grace_seconds": "Wait before ending the session after playback stops or pauses (seconds)",
+          "filename": "GIF filename prefix on WLED",
+          "fade_to_black": "Fade to black before showing each new cover",
+          "theme_light_transition": "Theme-light fade duration (seconds)",
+          "width": "Manual/fallback matrix width (pixels)",
+          "black_pause": "Pause at black between transitions (seconds)",
+          "transition_style": "Transition between album covers",
+          "height": "Manual/fallback matrix height (pixels)",
+          "image_fit": "How artwork fits the matrix",
+          "image_crop_position": "Artwork crop position",
+          "image_zoom": "Artwork zoom (100–200%)",
+          "image_blur_strength": "Custom background blur (0–40%)",
+          "image_background_brightness": "Artwork background brightness (0–100%)",
+          "auto_detect_size": "Automatically detect matrix dimensions from WLED",
+          "transition_seconds": "Matrix transition duration (seconds)",
+          "theme_color_mode": "Album-reactive color style (how cover colors are composed across lights)",
+          "segment_id": "WLED segment ID",
+          "pause_behavior": "When playback pauses: end after the grace period or keep the room scene until playback resumes",
+          "auto_power_mode": "When music starts: power on selected lights",
+          "theme_fade_mode": "Theme-light transition",
+          "theme_color_adjustments": "Album color adjustments",
+          "no_art_behavior": "If playback has no cover art yet",
+          "no_art_during_session_behavior": "If cover art disappears during a session",
+          "online_artwork_lookup": "Search online for cover art",
+          "ignored_inputs": "Ignore player input values (optional; comma-separated)",
+          "lastfm_api_key": "Last.fm API key (optional)",
+          "artwork_provider_1": "First cover service",
+          "artwork_provider_2": "Second cover service",
+          "artwork_provider_3": "Third cover service",
+          "artwork_provider_4": "Fourth cover service",
+          "theaudiodb_api_key": "TheAudioDB personal API key (optional)",
+          "room_end_behavior": "Room lights when playback ends",
+          "matrix_end_behavior": "Matrix when playback ends"
+        },
+        "data_description": {
+          "animated_artwork": "Enabled by default. Play animated covers on the matrix and the Artwork image entity. With online search enabled, show the player cover first, then check for an animated alternative in the background. Static results keep the player cover. Turning this off restores the original player cover after an upgrade; otherwise it uses the cached cover's first frame.",
+          "image_fit": "Choose crop-to-fill, black bars, blurred fill, dominant cover-color fill, or mirrored artwork edges. Adjustable blur and background brightness apply to the custom blurred, solid-color, and mirrored styles. The fixed soft/medium/strong presets retain their own brightness.",
+          "image_crop_position": "Choose which part of the cover stays in view when it must be cropped. This also anchors the zoomed artwork inside fit modes.",
+          "image_zoom": "100% shows the original cover scale. Increase the value to zoom in; crop position controls which part stays visible. This affects the foreground cover as well as crop-to-fill framing.",
+          "image_blur_strength": "Used only by the adjustable blurred-background style. 0% keeps the background sharp; larger values soften it more.",
+          "image_background_brightness": "Adjusts the filled area behind the cover in custom blur, dominant-color, and mirrored-edge styles. Set 0% for a black background; 100% keeps its natural brightness.",
+          "transition_style": "Choose the visual effect used when the album cover changes. Fade is the recommended everyday option; other effects are more noticeable.",
+          "transition_seconds": "Controls how long the matrix transition takes. Shorter values feel snappier; longer values feel smoother.",
+          "fade_to_black": "Before each new cover, WLED changes the matrix segment from its Image effect to Solid black and then back to Image. Some WLED builds can show a brief visual glitch during this effect change. Turn this off to use a direct native transition between covers.",
+          "black_pause": "Time spent at black between covers when fade-to-black is enabled. Set to 0 for no extra pause.",
+          "theme_color_mode": "Changes how album-cover colors are distributed across your theme lights. Artwork palette is the general-purpose recommendation.",
+          "theme_light_transition": "Sets the time for color fades and fade-to-black. It is ignored for instant changes and device-default timing. Some lights may use their own transition when the device-default mode is selected.",
+          "end_grace_seconds": "How long playback must remain stopped, or paused with the grace-period behavior selected, before the end behavior runs. Resume playback to cancel the countdown.",
+          "segment_id": "The WLED segment to receive the artwork. Most single-matrix setups use segment 0.",
+          "auto_detect_size": "Use dimensions reported by WLED when available. Manual width and height are fallback values when detection is unavailable or disabled.",
+          "pause_behavior": "Some Cast players keep the last album visible after casting stops. End after the grace period is recommended for reliable cleanup; choose hold to preserve the scene indefinitely during a pause.",
+          "theme_fade_mode": "Choose whether theme lights change instantly, fade directly between album colors, or fade to black in sync with the matrix when its fade-to-black option is enabled. Device default leaves transition timing to each light.",
+          "theme_color_adjustments": "Choose whether to lift near-black extracted colors, balance their perceived brightness, apply both, or use the artwork colors as-is.",
+          "auto_power_mode": "Power-on behavior applies only to outputs selected above. With both matrix and theme lights selected, choose which output types may turn on automatically. With one output type selected, the choices are power it on or leave it off.",
+          "no_art_behavior": "Used before any cover art has appeared in the current session. Wait leaves lights unchanged until music metadata or cover art is available. Choose a fallback scene only if you want supported audio-only sources to affect the room.",
+          "no_art_during_session_behavior": "Used only after cover art appeared in the current session. Keep the last scene through brief metadata gaps, use the configured fallback color on room lights with the matrix off, or turn selected outputs off.",
+          "online_artwork_lookup": "Search selected services for missing music covers. When Animated artwork is also enabled, show a usable static player cover first, then look for an animated alternative in the background. Keep the original unless a real animation is found. Both searches send title, artist, and album to selected services, even when a static cover is already available. Results are reused for the song; Refresh artwork retries, subject to service cooldowns. Turn off to stop both searches. Video/TV-only sources are not searched.",
+          "lastfm_api_key": "Optional. Enter the API key from your Last.fm API account. The shared secret is not used for cover lookups. Last.fm is queried only when selected above. Status shows key and connection errors; its online_artwork_lookup attributes give each service result. The key is stored in integration options and sent to Last.fm for lookups.",
+          "ignored_inputs": "Optional. Enter exact source values shown in the media player attributes to skip those inputs. Separate values with commas or new lines. Matching ignores capitalization and punctuation. Example: Product (TV), Product (HDMI1). Leave blank to allow all inputs.",
+          "artwork_provider_1": "Try selected services from first to fourth until a missing cover is found. For an animated alternative to a player cover, continue past static results. Choose Disabled to skip a position; repeated services are used once. Disable all four to make no online requests. MusicBrainz / Cover Art Archive and Deezer need no key. Last.fm is skipped without an API key. TheAudioDB can use its limited shared free key.",
+          "artwork_provider_2": "Try this service if earlier services have no matching cover or are unavailable. Disabled skips this position.",
+          "artwork_provider_3": "Try this service if earlier services have no matching cover or are unavailable. Disabled skips this position.",
+          "artwork_provider_4": "Try this service if earlier services have no matching cover or are unavailable. Disabled skips this position.",
+          "theaudiodb_api_key": "Leave blank to use TheAudioDB’s shared free key (123), which has limited access and shared request limits. A personal API key uses your account’s access and limits. TheAudioDB is queried only when selected above. The key is stored in integration options, sent only to TheAudioDB, and removed from downloadable diagnostics.",
+          "room_end_behavior": "Restore the saved room colors, optionally including saved brightness. A room light that was off before playback is turned off again. Keep leaves music lighting in place; turn off switches all selected room lights off.",
+          "matrix_end_behavior": "Choose independently from room lights: restore the pre-playback matrix state, leave the last artwork visible, or switch the matrix off."
+        }
+      }
+    },
+    "error": {
+      "target_not_wled": "Select a light entity created by the Home Assistant WLED integration.",
+      "wled_config_missing": "Could not find the WLED device configuration for that light.",
+      "target_already_configured": "This WLED matrix is already assigned to another Music Artwork Lighting entry. Use a different matrix or configure the existing entry.",
+      "output_roles_overlap": "A matrix cannot also be a theme light. Remove {entities} from the theme-light selection.",
+      "output_already_configured": "These lights are already controlled by another Music Artwork Lighting entry: {entities}. Remove them here or from the other entry to avoid conflicting commands.",
+      "output_not_physical": "Select physical room lights. {entities} is an integration configuration control, not a lighting output."
+    }
+  },
+  "entity": {
+    "select": {
+      "theme_color_mode": {
+        "name": "Theme color mode",
+        "state": {
+          "palette": "Artwork palette",
+          "contrast": "Dominant + contrast",
+          "shared": "Dominant color",
+          "vibrant": "Vibrant accents",
+          "complementary": "Complementary accent",
+          "analogous": "Analogous flow",
+          "cinematic": "Cinematic",
+          "monochrome": "Monochrome tones"
+        }
+      },
+      "transition_style": {
+        "name": "Matrix transition style",
+        "state": {
+          "instant": "Instant cut",
+          "fade": "Fade",
+          "shuffle": "Shuffle",
+          "fairy_dust": "Fairy Dust",
+          "swipe_right": "Swipe right",
+          "swipe_left": "Swipe left",
+          "swipe_up": "Swipe up",
+          "swipe_down": "Swipe down",
+          "swipe_top_left": "Diagonal swipe: top-left",
+          "swipe_top_right": "Diagonal swipe: top-right",
+          "swipe_bottom_right": "Diagonal swipe: bottom-right",
+          "swipe_bottom_left": "Diagonal swipe: bottom-left",
+          "push_right": "Push right",
+          "push_left": "Push left",
+          "push_up": "Push up",
+          "push_down": "Push down",
+          "outside_in": "Outside in",
+          "inside_out": "Inside out",
+          "open_horizontal": "Open horizontally",
+          "open_vertical": "Open vertically",
+          "circular_out": "Circular out",
+          "circular_in": "Circular in"
+        }
+      },
+      "image_fit": {
+        "name": "Artwork image fit",
+        "state": {
+          "crop": "Fill matrix (crop to fill)",
+          "contain": "Fit entire image (black bars)",
+          "blurred_background_soft": "Blurred background (soft)",
+          "blurred_background": "Blurred background (medium)",
+          "blurred_background_strong": "Blurred background (strong)",
+          "blurred_background_custom": "Blurred background (adjustable)",
+          "solid_background": "Dominant cover-color background",
+          "mirrored_background": "Mirrored cover-edge background"
+        }
+      },
+      "image_crop_position": {
+        "name": "Artwork crop position",
+        "state": {
+          "top_left": "Top left",
+          "top": "Top",
+          "top_right": "Top right",
+          "left": "Left",
+          "center": "Center",
+          "right": "Right",
+          "bottom_left": "Bottom left",
+          "bottom": "Bottom",
+          "bottom_right": "Bottom right"
+        }
+      },
+      "no_art_behavior": {
+        "name": "If playback has no cover art yet",
+        "state": {
+          "fallback_color": "Use fallback room color; keep matrix off",
+          "turn_off": "Turn selected outputs off",
+          "wait": "Leave lights unchanged and wait for artwork"
+        }
+      },
+      "no_art_during_session_behavior": {
+        "name": "If cover art disappears during a session",
+        "state": {
+          "keep_previous": "Keep the current scene",
+          "fallback_color": "Use fallback room color; keep matrix off",
+          "turn_off": "Turn selected outputs off"
+        }
+      },
+      "pause_behavior": {
+        "name": "When playback is paused",
+        "state": {
+          "end_after_grace": "End after grace period",
+          "hold": "Keep scene until playback resumes"
+        }
+      },
+      "auto_power_mode": {
+        "name": "Automatic power",
+        "state": {
+          "all": "Power on all selected outputs",
+          "matrix": "Power on matrix only",
+          "theme": "Power on theme lights only",
+          "none": "Never power on automatically"
+        }
+      },
+      "theme_fade_mode": {
+        "name": "Theme-light transition",
+        "state": {
+          "matrix_black": "Fade to black with matrix (if enabled)",
+          "colors": "Fade directly between colors",
+          "instant": "Change colors instantly",
+          "device_default": "Use each light’s default"
+        }
+      },
+      "theme_color_adjustments": {
+        "name": "Album color adjustments",
+        "state": {
+          "none": "None",
+          "avoid_dark": "Lift near-black colors",
+          "balance": "Balance color brightness",
+          "both": "Lift and balance"
+        }
+      },
+      "room_end_behavior": {
+        "name": "Room lights when playback ends",
+        "state": {
+          "restore_color": "Restore previous color",
+          "restore_color_brightness": "Restore previous color and brightness",
+          "keep": "Keep music lighting",
+          "turn_off": "Turn room lights off"
+        }
+      },
+      "matrix_end_behavior": {
+        "name": "Matrix when playback ends",
+        "state": {
+          "restore_previous": "Restore previous matrix state",
+          "keep": "Keep last artwork",
+          "turn_off": "Turn matrix off"
+        }
+      },
+      "fallback_brightness_mode": {
+        "name": "Fallback brightness source",
+        "state": {
+          "follow_room": "Use each room light’s brightness",
+          "fixed": "Use fallback color light brightness"
+        }
+      }
+    },
+    "number": {
+      "matrix_transition_duration": {
+        "name": "Matrix transition duration"
+      },
+      "theme_light_transition_duration": {
+        "name": "Theme-light fade duration"
+      },
+      "black_pause_duration": {
+        "name": "Pause at black duration"
+      },
+      "source_stabilization": {
+        "name": "Source stabilization delay"
+      },
+      "playback_end_grace": {
+        "name": "Playback-end grace period"
+      },
+      "device_warmup_delay": {
+        "name": "Device warm-up delay"
+      },
+      "artwork_zoom": {
+        "name": "Artwork zoom"
+      },
+      "artwork_blur_strength": {
+        "name": "Artwork blur strength"
+      },
+      "artwork_background_brightness": {
+        "name": "Artwork background brightness"
+      }
+    },
+    "switch": {
+      "animated_artwork": {
+        "name": "Animated artwork"
+      },
+      "matrix_output_enabled": {
+        "name": "Matrix artwork"
+      },
+      "online_artwork_lookup": {
+        "name": "Search online for cover art"
+      },
+      "fade_to_black": {
+        "name": "Fade to black between covers"
+      }
+    },
+    "button": {
+      "refresh": {
+        "name": "Refresh artwork"
+      },
+      "test_theme_lights": {
+        "name": "Test theme lights"
+      },
+      "test_matrix": {
+        "name": "Test matrix"
+      },
+      "retry_restore": {
+        "name": "Retry state restoration"
+      }
+    },
+    "image": {
+      "artwork": {
+        "name": "Artwork"
+      }
+    },
+    "sensor": {
+      "artwork_colors": {
+        "name": "Artwork colors"
+      }
+    },
+    "light": {
+      "no_art_fallback_color": {
+        "name": "Fallback color"
+      }
+    }
+  }
+}
