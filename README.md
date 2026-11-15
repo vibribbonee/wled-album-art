@@ -1,8 +1,25 @@
+<img src="https://raw.githubusercontent.com/vibribbonee/wled-album-art/main/custom_components/wled_album_art/brand/icon.png" alt="" width="64" height="64" align="right">
+
 # Music Artwork Lighting
 
-Show the current album cover on a WLED matrix and color the room to match. Use room lights or artwork entities on their own if you don’t have a matrix.
+Show the current album cover on a WLED matrix and color the room to match the music.
 
 [![Add to Home Assistant Marketplace](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=vibribbonee&repository=wled-album-art&category=integration)
+
+## Features
+
+- Display album artwork and sync color-capable room lights to its palette.
+- Use a matrix, room lights, or Home Assistant artwork entities on their own.
+- Set player priority and choose what the lights do when playback ends.
+- Use a separate integration entry for each matrix.
+
+```mermaid
+flowchart LR
+    M[Now playing] --> A[Album cover]
+    A --> W[WLED matrix]
+    A --> P[Color palette] --> L[Room lights]
+    A --> H[Home Assistant artwork entity]
+```
 
 ## Setup
 
