@@ -43,9 +43,7 @@ def test_release_uses_one_matrix_per_entry_and_supports_theme_only_mode() -> Non
     import json
 
     component = COMPONENT_DIR
-    manifest = json.loads((component / "manifest.json").read_text())
     strings = json.loads((component / "strings.json").read_text())
-    assert manifest["version"] == "0.16.2"
     assert "one wled matrix" in strings["config"]["step"]["user"]["description"].lower()
     assert "leave the matrix empty" in strings["config"]["step"]["user"]["description"].lower()
     assert "next screen" in strings["options"]["step"]["init"]["description"].lower()
@@ -236,8 +234,6 @@ def test_warmup_help_text_applies_to_all_configured_outputs() -> None:
 def test_current_source_sensor_and_diagnostics_expose_priority_without_artwork_urls() -> None:
     source = (COMPONENT_DIR / "sensor.py").read_text()
     manager_source = (COMPONENT_DIR / "manager.py").read_text()
-    manifest = __import__("json").loads((COMPONENT_DIR / "manifest.json").read_text())
-    assert manifest["version"] == "0.16.2"
     assert "MusicArtworkCurrentSourceSensor" in source
     assert 'f"{entry.entry_id}_current_source"' in source
     assert "source_diagnostics" in source

@@ -8,10 +8,11 @@ Show the current album cover on a WLED matrix and color the room to match the mu
 
 ## Features
 
-- Display album artwork and sync color-capable room lights to its palette.
-- Use a matrix, room lights, or Home Assistant artwork entities on their own.
-- Set player priority and choose what the lights do when playback ends.
-- Use a separate integration entry for each matrix.
+- **Album covers on a WLED matrix.** Show static or animated artwork and choose how it fits and transitions.
+- **Room lights that match the music.** Use colors from the current cover, with or without a matrix.
+- **Cover lookup.** Use the player’s artwork or search online for missing covers and animated alternatives.
+- **Dashboard artwork.** Add the current cover and its palette to a Home Assistant dashboard without any lights.
+- **Playback controls.** Prioritize players, set what happens when music stops, and configure each matrix independently.
 
 ## Where the cover comes from
 
@@ -35,7 +36,7 @@ With online search enabled, the integration can fetch a missing cover or look fo
 1. Install from Home Assistant Marketplace and restart Home Assistant.
 2. Go to **Settings → Devices & services → Add integration → Music Artwork Lighting** and choose a media player. Add more players in **Configure** to set their priority.
 3. Pick color-capable room lights and, optionally, a matrix light from the built-in WLED integration. Matrix artwork needs WLED 0.16.x with the Image effect and PixelForge playback support. Add one entry per matrix and assign each physical light to one entry.
-4. Choose what the matrix and room lights should do when playback ends. Keep your existing entry when upgrading.
+4. Choose what the matrix and room lights should do when playback ends.
 
 Use **Automatic control** to pause the integration, or turn off **Matrix artwork** to keep room-light matching on its own. Disable **Search online for cover art** to use the artwork your players provide.
 

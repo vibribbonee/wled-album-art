@@ -5,6 +5,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 
 from .const import CONF_SOURCE_ENTITY, CONF_TARGET_ENTITIES, CONF_TARGET_ENTITY, DOMAIN
 from .manager import AlbumArtManager
@@ -12,6 +13,7 @@ from .selection import normalize_entity_list
 
 _LOGGER = logging.getLogger(__name__)
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = ["button", "image", "light", "sensor", "switch", "select", "number"]
 
 

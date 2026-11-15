@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.16.3
+
+- Correct Home Assistant integration metadata and use Home Assistant’s bundled Pillow dependency.
+- Clarify cover lookup, playback controls, and display options in the README.
+
 ## 0.16.2 — Animated alternatives without delaying player artwork
 
 - Display usable player artwork first. When Animated artwork and online cover search are enabled, look for an animated alternative in the background without blocking playback processing or native artwork updates.
