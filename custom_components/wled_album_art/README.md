@@ -13,13 +13,22 @@ Show the current album cover on a WLED matrix and color the room to match the mu
 - Set player priority and choose what the lights do when playback ends.
 - Use a separate integration entry for each matrix.
 
+## Where the cover comes from
+
 ```mermaid
-flowchart LR
-    M[Now playing] --> A[Album cover]
-    A --> W[WLED matrix]
-    A --> P[Color palette] --> L[Room lights]
-    A --> H[Home Assistant artwork entity]
+flowchart TD
+    M[Home Assistant media player] -->|Track details and artwork URL| A[Music Artwork Lighting]
+    A -->|Fetch player artwork| U[Player artwork URL]
+    U -->|Cover image| A
+    A -->|Search by title, artist, and album| S[Online cover services]
+    S -->|Matching cover image| A
+    A --> C[Selected cover]
+    C --> W[WLED matrix]
+    C --> P[Color palette] --> L[Room lights]
+    C --> H[Home Assistant artwork entity]
 ```
+
+With online search enabled, the integration can fetch a missing cover or look for an animated version of a static player cover. You can choose MusicBrainz and Cover Art Archive, Deezer, Last.fm, and TheAudioDB in the settings.
 
 ## Setup
 
