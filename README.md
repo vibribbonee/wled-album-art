@@ -1,8 +1,8 @@
 # Music Artwork Lighting — Home Assistant custom integration (v0.16.2)
 
-Match your room lighting and an optional WLED matrix to the music you're playing. Use cover art from your media player or selected online services. The integration also exposes an image and RGB/hex palettes for dashboards and automations, with no lighting hardware required.
+Show the current album cover on a WLED matrix and color the room to match the artwork. Add one integration entry per matrix for multiple displays. Leave the matrix empty to use room lights or artwork entities on their own.
 
-[Install](#install) · [Daily controls](#dashboard-controls) · [Cover services](#cover-services) · [Dashboard artwork and colors](#artwork-and-colors-in-dashboards) · [Troubleshooting](#troubleshooting)
+[![Add to Home Assistant Marketplace](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=vibribbonee&repository=wled-album-art&category=integration)
 
 ## Requirements
 
