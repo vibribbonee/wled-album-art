@@ -100,7 +100,6 @@ from .const import (
     THEME_FADE_MODES,
     THEME_COLOR_ADJUSTMENT_MODES,
     NO_ART_BEHAVIORS,
-    NO_ART_DURING_SESSION_BEHAVIORS,
     artwork_provider_order,
     normalize_end_behavior,
 )

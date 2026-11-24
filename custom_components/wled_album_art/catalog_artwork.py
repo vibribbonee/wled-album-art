@@ -15,7 +15,8 @@ from urllib.parse import quote, urlsplit
 
 import aiohttp
 
-_USER_AGENT = "MusicArtworkLighting/0.16.2 (Home Assistant custom integration)"
+from .const import USER_AGENT
+
 _MAX_CANDIDATES = 10
 _MAX_IMAGE_ATTEMPTS = 6
 _MAX_JSON_BYTES = 1_000_000
@@ -378,7 +379,7 @@ class CatalogArtworkLookup:
         # API requests never redirect: TheAudioDB embeds its API key in the path.
         async with self._session.get(
             url, params=params,
-            headers={"User-Agent": _USER_AGENT, "Accept": "application/json"},
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
             timeout=aiohttp.ClientTimeout(total=12), allow_redirects=False,
         ) as response:
             status = response.status

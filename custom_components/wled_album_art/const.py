@@ -3,6 +3,13 @@
 from collections.abc import Mapping
 
 DOMAIN = "wled_album_art"
+# Keep in sync with manifest.json; tests enforce this.
+INTEGRATION_VERSION = "0.16.4"
+# MusicBrainz asks clients to identify themselves with a name, version, and contact URL.
+USER_AGENT = (
+    f"MusicArtworkLighting/{INTEGRATION_VERSION} "
+    "( https://github.com/vibribbonee/wled-album-art )"
+)
 
 # Configuration keys. CONF_SOURCE_ENTITY remains for existing config entries.
 CONF_SOURCE_ENTITY = "source_entity"

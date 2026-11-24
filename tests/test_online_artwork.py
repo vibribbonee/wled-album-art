@@ -534,3 +534,44 @@ async def test_explicit_refresh_can_retry_same_key_after_authentication_failure(
     assert len(session.calls) == 2
     assert lookup.diagnostics()["provider_results"] == {"lastfm": "no_match"}
     assert lookup.diagnostics()["lastfm_backoff_reason"] is None
+
+
+@pytest.mark.asyncio
+async def test_cached_lookup_never_requests_and_reports_completed_searches():
+    """The coordinator polls this while holding its lock, so it must stay offline."""
+    def handler(url, params):
+        if params.get("method") == "album.getInfo":
+            return Response({"album": {"image": [{"#text": PLACEHOLDER}]}})
+        if params.get("method") == "track.getInfo":
+            return Response(track_payload())
+        return Response(image=IMAGE_BYTES)
+
+    session = Session(handler)
+    lookup = OnlineArtworkLookup(session)
+    lookup.configure("lastfm_only", "test-api-key")
+
+    assert lookup.cached_lookup("Musician", "Porter Robinson", "Nurture") == (False, None)
+    assert session.calls == []
+
+    assert await lookup.async_lookup("Musician", "Porter Robinson", "Nurture") == IMAGE_BYTES
+    request_count = len(session.calls)
+    assert lookup.cached_lookup("Musician", "Porter Robinson", "Nurture") == (True, IMAGE_BYTES)
+    assert lookup.diagnostics()["from_cache"] is True
+    assert len(session.calls) == request_count
+
+
+def test_cached_lookup_answers_missing_metadata_without_a_search():
+    session = Session(lambda _url, _params: pytest.fail("no request expected"))
+    lookup = OnlineArtworkLookup(session)
+    lookup.configure("lastfm_only", "test-api-key")
+    assert lookup.cached_lookup("", "Porter Robinson") == (True, None)
+    assert lookup.diagnostics()["provider_results"] == {"lookup": "missing_metadata"}
+
+
+@pytest.mark.asyncio
+async def test_cached_lookup_keeps_a_miss_for_the_current_song():
+    session = Session(lambda _url, _params: missing())
+    lookup = OnlineArtworkLookup(session)
+    lookup.configure("lastfm_only", "test-api-key")
+    assert await lookup.async_lookup("Unknown", "Nobody") is None
+    assert lookup.cached_lookup("Unknown", "Nobody") == (True, None)
