@@ -399,7 +399,7 @@ def test_dashboard_behavior_toggles_and_live_selects_are_available() -> None:
         "CONF_END_BEHAVIOR", "CONF_BLACK_PAUSE",
     ):
         assert option in manager_source
-    assert "self.hass.async_create_task(self.async_update(force=True))" in manager_source
+    assert "self.entry.async_create_task(self.hass, self.async_update(force=True))" in manager_source
     assert "_async_fade_theme_lights_to_black" in manager_source
     assert "self.fade_theme_lights_with_matrix" in manager_source
     assert '"value": "black"' not in (component / "config_flow.py").read_text()
@@ -488,3 +488,18 @@ def test_decorative_lights_can_follow_matrix_fade_to_black() -> None:
     assert set(strings["entity"]["select"]["theme_fade_mode"]["state"]) == {
         "matrix_black", "colors", "instant", "device_default",
     }
+
+
+def test_manifest_version_matches_user_agent_constant():
+    """Cover services see the released version; one constant feeds both clients."""
+    import json
+
+    component = Path(__file__).resolve().parents[1] / "custom_components" / "wled_album_art"
+    manifest = json.loads((component / "manifest.json").read_text())
+    from wled_album_art_under_test import const
+
+    assert const.INTEGRATION_VERSION == manifest["version"]
+    assert manifest["version"] in const.USER_AGENT
+    assert "github.com/vibribbonee/wled-album-art" in const.USER_AGENT
+    for module in ("online_artwork.py", "catalog_artwork.py"):
+        assert "_USER_AGENT =" not in (component / module).read_text()

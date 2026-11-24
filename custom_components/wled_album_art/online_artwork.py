@@ -18,6 +18,7 @@ import aiohttp
 
 from .catalog_artwork import CatalogArtworkLookup, CatalogLookupError
 from .const import (
+    USER_AGENT,
     ARTWORK_PROVIDER_PRIORITIES,
     CONF_ARTWORK_PROVIDERS,
     CONF_ARTWORK_PROVIDER_PRIORITY,
@@ -41,7 +42,6 @@ _LASTFM_LOCK = asyncio.Lock()
 _LAST_LASTFM_REQUEST = 0.0
 # Shared across entries using the same key; only fingerprints are retained.
 _LASTFM_BACKOFF: OrderedDict[str, tuple[str, float]] = OrderedDict()
-_USER_AGENT = "MusicArtworkLighting/0.16.2 (Home Assistant custom integration)"
 _PROVIDER_NAMES = {
     "musicbrainz": "MusicBrainz / Cover Art Archive",
     "lastfm": "Last.fm",
@@ -285,6 +285,24 @@ class OnlineArtworkLookup:
             return "No matching cover found by the selected services"
         return None
 
+    def cached_lookup(
+        self, title: str | None, artist: str | None, album: str | None = None,
+    ) -> tuple[bool, bytes | None]:
+        """Answer from memory only; ``(False, None)`` means a request is needed.
+
+        This lets the coordinator decide without holding its playback lock
+        while slow cover services respond. It never starts network requests.
+        """
+        request = self._lookup_request(title, artist, album)
+        if request is None:
+            self._record_missing_metadata()
+            return True, None
+        key = request[-1]
+        cached = self._cache.get(key)
+        if cached is not None and self._use_cached(key, cached, time.monotonic()):
+            return True, cached.image
+        return False, None
+
     async def async_lookup(
         self, title: str | None, artist: str | None, album: str | None = None,
         *, on_request: Callable[[], None] | None = None,
@@ -293,22 +311,15 @@ class OnlineArtworkLookup:
         async with self._lookup_lock:
             return await self._async_lookup(title, artist, album, on_request=on_request)
 
-    async def _async_lookup(
-        self, title: str | None, artist: str | None, album: str | None = None,
-        *, on_request: Callable[[], None] | None = None,
-    ) -> bytes | None:
-        """Return a bounded cover, trying configured providers in priority order."""
+    def _lookup_request(
+        self, title: str | None, artist: str | None, album: str | None,
+    ) -> tuple[str, str, str, tuple[str, ...], tuple] | None:
+        """Normalize metadata and build the cache key, or None without title/artist."""
         title = _normalize_metadata(title)
         artist = _normalize_metadata(artist)
         album = _normalize_metadata(album)
         if not title or not artist:
-            self._provider_results = {"lookup": "missing_metadata"}
-            self._matched_provider = None
-            self._matched_query = None
-            self._from_cache = False
-            self._active_key = None
             return None
-
         providers = self._ordered_providers()
         api_key_fingerprint = ":".join(
             hashlib.sha256(secret.encode()).hexdigest()[:16] if secret else ""
@@ -318,6 +329,43 @@ class OnlineArtworkLookup:
             title.casefold(), artist.casefold(), album.casefold(),
             ",".join(providers), api_key_fingerprint,
         )
+        return title, artist, album, providers, key
+
+    def _record_missing_metadata(self) -> None:
+        self._provider_results = {"lookup": "missing_metadata"}
+        self._matched_provider = None
+        self._matched_query = None
+        self._from_cache = False
+        self._active_key = None
+
+    def _use_cached(self, key: tuple, cached: _CachedLookup, now: float) -> bool:
+        """Adopt a cached result unless its single retry is due or it expired.
+
+        Keep both success and failure for this playing song, even when a long
+        track outlasts the ordinary cache TTL. Position/volume updates must not
+        start another lookup. Refresh/settings explicitly reset it.
+        """
+        retry_due = cached.retry_at is not None and now >= cached.retry_at
+        if retry_due or not (key == self._active_key or now < cached.expires_at):
+            return False
+        self._cache.move_to_end(key)
+        self._provider_results = dict(cached.provider_results)
+        self._matched_provider = cached.matched_provider
+        self._matched_query = cached.matched_query
+        self._from_cache = True
+        self._active_key = key
+        return True
+
+    async def _async_lookup(
+        self, title: str | None, artist: str | None, album: str | None = None,
+        *, on_request: Callable[[], None] | None = None,
+    ) -> bytes | None:
+        """Return a bounded cover, trying configured providers in priority order."""
+        request = self._lookup_request(title, artist, album)
+        if request is None:
+            self._record_missing_metadata()
+            return None
+        title, artist, album, providers, key = request
         now = time.monotonic()
         cached = self._cache.get(key)
         retry_attempted = bool(
@@ -326,17 +374,8 @@ class OnlineArtworkLookup:
         )
         retry_due = False
         if cached is not None:
-            # Keep both success and failure for this playing song, even when a
-            # long track outlasts the ordinary cache TTL. Position/volume updates
-            # must not start another lookup. Refresh/settings explicitly reset it.
             retry_due = cached.retry_at is not None and now >= cached.retry_at
-            if not retry_due and (key == self._active_key or now < cached.expires_at):
-                self._cache.move_to_end(key)
-                self._provider_results = dict(cached.provider_results)
-                self._matched_provider = cached.matched_provider
-                self._matched_query = cached.matched_query
-                self._from_cache = True
-                self._active_key = key
+            if self._use_cached(key, cached, now):
                 return cached.image
             self._cache.pop(key, None)
             if cached.image is not None:
@@ -428,7 +467,7 @@ class OnlineArtworkLookup:
             except aiohttp.ClientConnectionError:
                 provider_results[provider] = "connection_failed"
                 continue
-            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, OSError) as err:
+            except (aiohttp.ClientError, ValueError, OSError) as err:
                 _LOGGER.debug("%s artwork lookup failed: %s", provider, safe_error_text(err))
                 provider_results[provider] = "request_failed"
                 continue
@@ -694,7 +733,7 @@ class OnlineArtworkLookup:
             async with self._session.get(
                 f"https://musicbrainz.org/ws/2/{entity_type}/",
                 params={"query": query, "fmt": "json", "limit": 5},
-                headers={"User-Agent": _USER_AGENT, "Accept": "application/json"},
+                headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
                 timeout=aiohttp.ClientTimeout(total=12),
             ) as response:
                 response.raise_for_status()
@@ -791,7 +830,7 @@ class OnlineArtworkLookup:
         async with self._session.get(
             _LASTFM_ENDPOINT,
             params=payload,
-            headers={"User-Agent": _USER_AGENT, "Accept": "application/json"},
+            headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
             timeout=aiohttp.ClientTimeout(total=12),
         ) as response:
             if response.status == 429:
@@ -886,7 +925,7 @@ class OnlineArtworkLookup:
                 image_url = urlunsplit(("https", parsed.netloc, parsed.path, parsed.query, ""))
             async with self._session.get(
                 image_url,
-                headers={"User-Agent": _USER_AGENT, "Accept": "image/*"},
+                headers={"User-Agent": USER_AGENT, "Accept": "image/*"},
                 timeout=aiohttp.ClientTimeout(total=15),
                 allow_redirects=False,
             ) as response:

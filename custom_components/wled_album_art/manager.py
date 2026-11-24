@@ -204,6 +204,11 @@ class AlbumArtManager:
         self._animation_upgrade_task: asyncio.Task | None = None
         self._animation_upgrade_key: TrackKey | None = None
         self._animation_upgrade_status = "not_requested"
+        # Missing-cover searches can take several provider timeouts. They run
+        # outside the playback lock; the next update reads the cached result.
+        self._missing_cover_task: asyncio.Task | None = None
+        self._missing_cover_request: tuple | None = None
+        self._missing_cover_failed_request: tuple | None = None
         self._player_artwork: PlayerArtwork | None = None
         self._artwork_provider_revision = 0
         self.legacy_source_entity = entry.data.get(CONF_SOURCE_ENTITY)
@@ -488,6 +493,7 @@ class AlbumArtManager:
 
     def _configure_artwork_lookups(self, options: dict) -> None:
         """Give missing-cover and animation lookups the same service preferences."""
+        self._cancel_missing_cover_lookup()
         for lookup in (self._online_artwork_lookup, self._animated_artwork_lookup):
             lookup.configure(
                 str(options.get(CONF_ARTWORK_PROVIDER_PRIORITY, DEFAULT_ARTWORK_PROVIDER_PRIORITY)),
@@ -967,7 +973,7 @@ class AlbumArtManager:
                 if no_art_refresh or refresh_online_artwork or refresh_no_art_scene or refresh_animation or (
                     refresh_matrix and self._session_active and self._last_key is not None
                 ):
-                    self.hass.async_create_task(self.async_update(force=True))
+                    self.entry.async_create_task(self.hass, self.async_update(force=True))
                 _LOGGER.debug("Applied live Music Artwork Lighting options: %s", sorted(changed_keys))
                 return True
 
@@ -1035,6 +1041,65 @@ class AlbumArtManager:
         self._artwork_data = prepared
         self._artwork_prepared_animations = self.animated_artwork_enabled
 
+    def _cancel_missing_cover_lookup(self) -> None:
+        """Stop a background missing-cover search and forget its failure marker."""
+        task = self._missing_cover_task
+        self._missing_cover_task = None
+        self._missing_cover_request = None
+        self._missing_cover_failed_request = None
+        if task is not None and not task.done() and task is not asyncio.current_task():
+            task.cancel()
+
+    def _cached_missing_cover(
+        self, title: str, artist: str, album: str | None, status: str,
+    ) -> tuple[bool, bytes | None]:
+        """Return ``(True, image)`` from memory, or start a background search.
+
+        ``(False, None)`` means a search is running; its completion schedules
+        another update, which then finds the cached result here.
+        """
+        hit, image = self._online_artwork_lookup.cached_lookup(title, artist, album)
+        if hit:
+            return True, image
+        request = (title, artist, album)
+        if self._missing_cover_failed_request == request:
+            # The previous search for this song ended unexpectedly; do not loop.
+            return True, None
+        running = self._missing_cover_task is not None and not self._missing_cover_task.done()
+        if not running or self._missing_cover_request != request:
+            self._cancel_missing_cover_lookup()
+            self._missing_cover_request = request
+            self._missing_cover_task = self.entry.async_create_background_task(
+                self.hass,
+                self._async_missing_cover_lookup(request, status),
+                f"{DOMAIN} missing cover {self.entry.entry_id}",
+                eager_start=False,
+            )
+        self._set_status(status)
+        return False, None
+
+    async def _async_missing_cover_lookup(self, request: tuple, status: str) -> None:
+        """Search cover services without blocking playback, refresh, or unload."""
+        title, artist, album = request
+        try:
+            await self._online_artwork_lookup.async_lookup(
+                title, artist, album, on_request=lambda: self._set_status(status),
+            )
+        except Exception as err:  # noqa: BLE001 - optional lookup never interrupts playback
+            self._missing_cover_failed_request = request
+            _LOGGER.debug("Online cover search failed: %s", _safe_error_text(err))
+        else:
+            # A search normally caches its outcome. If it could not (for
+            # example, settings changed meanwhile), treat this song as having
+            # no online cover instead of searching again on every update.
+            if not self._online_artwork_lookup.cached_lookup(title, artist, album)[0]:
+                self._missing_cover_failed_request = request
+        finally:
+            if self._missing_cover_task is asyncio.current_task():
+                self._missing_cover_task = None
+        if not self._stopping:
+            self._schedule_update(immediate=True, reset_delay=False)
+
     def _cancel_animation_upgrade(self, *, release_track: bool = False) -> None:
         """Stop optional enrichment without disturbing the displayed player cover."""
         task = self._animation_upgrade_task
@@ -1086,9 +1151,13 @@ class AlbumArtManager:
         self._animation_upgrade_status = "pending"
         # This optional task can wait through a service cooldown. Its explicit
         # lifecycle cancellation keeps it out of HA's foreground task drain.
-        self._animation_upgrade_task = asyncio.create_task(
+        self._animation_upgrade_task = self.entry.async_create_background_task(
+            self.hass,
             self._async_upgrade_player_artwork(key),
-            name=f"{DOMAIN} animated cover {self.entry.entry_id}",
+            f"{DOMAIN} animated cover {self.entry.entry_id}",
+            # The task compares itself with _animation_upgrade_task, so it must
+            # not start running before that assignment completes.
+            eager_start=False,
         )
 
     async def _async_upgrade_player_artwork(self, key: TrackKey) -> None:
@@ -1376,7 +1445,12 @@ class AlbumArtManager:
                 output.entity_id: {
                     "width": output.width,
                     "height": output.height,
-                    "dimensions_source": "wled_auto_detected" if output.resolution_detected else output.resolution_source,
+                    "dimensions_source": (
+                        "wled_auto_detected" if output.resolution_detected
+                        # Detection runs before the first cover is loaded.
+                        else "manual_until_detected" if output.auto_detect_size
+                        else "manual"
+                    ),
                     "segment_id": output.segment_id,
                     "last_artwork_file": output.last_filename,
                     "last_updated": output.last_matrix_key is not None,
@@ -2112,17 +2186,18 @@ class AlbumArtManager:
                 if isinstance(snapshot, dict):
                     output.snapshot = deepcopy(snapshot)
             if stored.get("session_active") or stored.get("matrix_snapshots") or stored.get("theme_restore_pending"):
+                # The first scheduled update restores this state before it sends
+                # any new output. Doing it here would hold up Home Assistant's
+                # startup for as long as an unreachable light takes to time out.
                 self._recovery_pending = True
                 self._set_status("Recovering saved pre-playback state")
-                await self._async_restore_saved_state()
             else:
                 self._recovery_pending = False
                 self._schedule_recovery_retry()
                 self._set_status("Waiting to restore previously unavailable devices")
 
-        if self.matrix_enabled:
-            await self._async_detect_resolution()
-
+        # Matrix dimensions are detected just before the first cover is loaded,
+        # so an offline WLED cannot delay setup here.
         if self.matrix_enabled and not self.matrix_output_enabled:
             await self._async_apply_matrix_output_override(False)
 
@@ -2212,14 +2287,14 @@ class AlbumArtManager:
     @callback
     def _failure_retry_elapsed(self, _now) -> None:
         self._failure_retry_unsub = None
-        if self._end_plan_retry_pending or getattr(self, "_end_plan_rollback_pending", False):
-            self.hass.async_create_task(self._async_end_session())
+        if self._end_plan_retry_pending or self._end_plan_rollback_pending:
+            self.entry.async_create_task(self.hass, self._async_end_session())
             return
         self._schedule_update()
 
     def _schedule_failure_retry(self) -> None:
         """Retry transient device/API failures after a short cooldown."""
-        if getattr(self, "_failure_retry_unsub", None) is None and not self._stopping:
+        if self._failure_retry_unsub is None and not self._stopping:
             self._failure_retry_unsub = async_call_later(
                 self.hass, 15, self._failure_retry_elapsed
             )
@@ -2247,7 +2322,7 @@ class AlbumArtManager:
         self._pending_update_unsub = None
         self._pending_update_deadline = None
         self._update_burst_started = None
-        self.hass.async_create_task(self.async_update())
+        self.entry.async_create_task(self.hass, self.async_update())
 
     def _cancel_artwork_retry(self) -> None:
         if self._artwork_retry_unsub:
@@ -2292,6 +2367,7 @@ class AlbumArtManager:
         self._stopping = True
         self._cancel_artwork_retry()
         self._cancel_animation_upgrade(release_track=True)
+        self._cancel_missing_cover_lookup()
         if self._pending_update_unsub:
             self._pending_update_unsub()
             self._pending_update_unsub = None
@@ -2400,7 +2476,7 @@ class AlbumArtManager:
             self._end_countdown_unsub = None
         self._session_end_deadline = None
         self._session_end_reason = None
-        self.hass.async_create_task(self._async_end_session(generation=generation))
+        self.entry.async_create_task(self.hass, self._async_end_session(generation=generation))
 
     def _note_matrix_state_change(self, entity_id: str, old_state, new_state) -> bool:
         """Invalidate display assumptions and identify our own power-on confirmation."""
@@ -2526,6 +2602,7 @@ class AlbumArtManager:
         async with self._lock:
             self._cancel_artwork_retry()
             self._cancel_animation_upgrade()
+            self._cancel_missing_cover_lookup()
             self._artwork_fetcher.clear_cache()
             self._online_artwork_lookup.clear_cache(retry_authentication=True)
             self._animated_artwork_lookup.clear_cache(retry_authentication=True)
@@ -2689,10 +2766,12 @@ class AlbumArtManager:
                         or state.attributes.get("media_album_artist")
                     )
                     if title and artist and not self._is_video_media(state):
-                        image_bytes = await self._online_artwork_lookup.async_lookup(
+                        ready, image_bytes = self._cached_missing_cover(
                             title, artist, state.attributes.get("media_album_name"),
-                            on_request=lambda: self._set_status("Searching online for a missing cover"),
+                            "Searching online for a missing cover",
                         )
+                        if not ready:
+                            return
                         self._schedule_artwork_retry()
                         if image_bytes:
                             online_artwork_by_source[source_entity] = image_bytes
@@ -2946,10 +3025,12 @@ class AlbumArtManager:
                             and title and artist
                         ):
                             raise
-                        fallback_image = await self._online_artwork_lookup.async_lookup(
+                        ready, fallback_image = self._cached_missing_cover(
                             title, artist, state.attributes.get("media_album_name"),
-                            on_request=lambda: self._set_status("Searching online for a replacement cover"),
+                            "Searching online for a replacement cover",
                         )
+                        if not ready:
+                            return
                         self._schedule_artwork_retry()
                         if not fallback_image:
                             raise
@@ -3636,10 +3717,7 @@ class AlbumArtManager:
                 service_data["rgb_color"] = [int(rgb[0]), int(rgb[1]), int(rgb[2])]
                 if brightness_percent:
                     service_data["brightness"] = max(1, min(255, round(brightness_percent * 255 / 100)))
-                elif restore_saved_brightness:
-                    if saved_state.get("brightness") is not None:
-                        service_data["brightness"] = int(saved_state["brightness"])
-                elif state.state != "on":
+                elif restore_saved_brightness or state.state != "on":
                     if saved_state.get("brightness") is not None:
                         service_data["brightness"] = int(saved_state["brightness"])
             transition = self._theme_light_transition_value()
@@ -4345,7 +4423,7 @@ class AlbumArtManager:
         async with self._lock:
             if self._stopping:
                 return
-            if getattr(self, "_end_plan_rollback_pending", False):
+            if self._end_plan_rollback_pending:
                 # The original journal is in memory, but the last successful
                 # write still contains a superseded end action. Make originals
                 # durable again before allowing either recovery or playback.

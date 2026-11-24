@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.16.4 — Faster startup and non-blocking cover searches
+
+- Search cover services in the background when a player has no usable artwork. Refresh artwork, playback-end actions, and reloading the integration no longer wait for a slow or unreachable service.
+- Start without waiting for an offline matrix or room light: saved pre-playback state is restored, and matrix size detected, by the first update instead of during Home Assistant setup.
+- Track background work on the config entry so unloading or reloading the integration cancels optional searches cleanly.
+- Identify requests to MusicBrainz and other cover services with the current version and a project contact URL, as MusicBrainz requests.
+- Diagnostics report matrix size as `manual_until_detected` until WLED auto-detection has run, instead of a misleading `manual_fallback`.
+- Declare Home Assistant 2024.12 as the minimum supported version for HACS.
+- Run the test suite in CI, add coverage for cached cover lookups, and remove unused code.
+
 ## 0.16.3
 
 - Correct Home Assistant integration metadata and use Home Assistant’s bundled Pillow dependency.
