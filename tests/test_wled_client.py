@@ -101,3 +101,21 @@ async def test_cleanup_preserves_artwork_needed_for_state_restoration() -> None:
     )
 
     assert session.deleted_paths == ["/album_old-cover.gif"]
+
+
+def test_client_follows_a_new_address_from_the_resolver():
+    """A WLED that moves to a new IP keeps working without a reload."""
+    address = {"url": "http://192.168.0.108"}
+    client = WLEDClient(
+        None, "http://192.168.0.108", "", 0, "album",
+        url_resolver=lambda: address["url"],
+    )
+    assert client._url("json/state") == "http://192.168.0.108/json/state"
+    address["url"] = "http://192.168.0.140/"
+    assert client._url("json/state") == "http://192.168.0.140/json/state"
+
+    def missing():
+        raise ValueError("WLED entry removed")
+
+    client._url_resolver = missing
+    assert client._url("json/info") == "http://192.168.0.140/json/info"

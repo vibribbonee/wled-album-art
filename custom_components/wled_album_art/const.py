@@ -4,7 +4,7 @@ from collections.abc import Mapping
 
 DOMAIN = "wled_album_art"
 # Keep in sync with manifest.json; tests enforce this.
-INTEGRATION_VERSION = "0.16.4"
+INTEGRATION_VERSION = "0.16.5"
 # MusicBrainz asks clients to identify themselves with a name, version, and contact URL.
 USER_AGENT = (
     f"MusicArtworkLighting/{INTEGRATION_VERSION} "

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.5 — Follow the matrix to a new address
+
+- Re-read the WLED integration's address before each request. When the matrix gets a new IP and Home Assistant's WLED integration finds it, artwork keeps updating without reloading this integration.
+
 ## 0.16.4 — Faster startup and non-blocking cover searches
 
 - Search cover services in the background when a player has no usable artwork. Refresh artwork, playback-end actions, and reloading the integration no longer wait for a slow or unreachable service.

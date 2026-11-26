@@ -292,7 +292,8 @@ class AlbumArtManager:
                     target_url = self._resolve_wled_url(target)
                     prefix = f"{self.filename_prefix}_{target.split('.')[-1]}"
                     client = WLEDClient(
-                        self.session, target_url, self.pin, self.segment_id, prefix
+                        self.session, target_url, self.pin, self.segment_id, prefix,
+                        url_resolver=partial(self._resolve_wled_url, target),
                     )
                     self.matrix_outputs.append(MatrixOutput(
                         entity_id=target,
@@ -3948,6 +3949,7 @@ class AlbumArtManager:
         client = WLEDClient(
             self.session, target_url, str(snapshot.get("pin", self.pin) or ""),
             segment_id, f"{self.filename_prefix}_{entity_id.split('.')[-1]}",
+            url_resolver=partial(self._resolve_wled_url, entity_id),
         )
         return MatrixOutput(
             entity_id=entity_id,

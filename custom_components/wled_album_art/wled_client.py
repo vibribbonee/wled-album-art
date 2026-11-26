@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import json
+from collections.abc import Callable
 from pathlib import PurePosixPath
 from urllib.parse import urljoin
 
@@ -28,9 +29,14 @@ class WLEDClient:
         pin: str,
         segment_id: int,
         filename_prefix: str,
+        *,
+        url_resolver: Callable[[], str] | None = None,
     ) -> None:
         self._session = session
         self.base_url = base_url.rstrip("/") + "/"
+        # Re-read the address before each request, so a WLED that moved to a
+        # new IP (followed by Home Assistant's WLED integration) keeps working.
+        self._url_resolver = url_resolver
         self.pin = str(pin or "")
         self.segment_id = int(segment_id)
         self.filename_prefix = filename_prefix
@@ -239,4 +245,12 @@ class WLEDClient:
             _LOGGER.debug("Best-effort WLED GIF cleanup failed: %s", err)
 
     def _url(self, path: str) -> str:
+        if self._url_resolver is not None:
+            try:
+                current = self._url_resolver().rstrip("/") + "/"
+            except (ValueError, KeyError):
+                current = self.base_url  # Keep the last known address.
+            if current != self.base_url:
+                _LOGGER.info("WLED address changed from %s to %s", self.base_url, current)
+                self.base_url = current
         return urljoin(self.base_url, path)
